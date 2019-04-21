@@ -1,64 +1,46 @@
-const _ = require('lodash');
 const Authors = require('./data/authors');
 const Posts = require('./data/posts');
 
-const {
-    GraphQLString,
-    GraphQLList,
-    GraphQLObjectType,
-    GraphQLNonNull,
-    GraphQLSchema
-} = require('graphql');
+const { buildSchema } = require('graphql');
 
-const AuthorType = new GraphQLObjectType({
-    name: "Author",
-    description: "This represent an author",
-    fields: () => ({
-        id: { type: new GraphQLNonNull(GraphQLString)},
-        name: { type: new GraphQLNonNull(GraphQLString)},
-        twitterHandler: {type: GraphQLString}
-    })
-});
+const schema = buildSchema(`
+    type Query {
+        author(id: String): Author
+        authors: [Author]
+        post(id: String, author_id: String): Post
+        posts: [Post]
+    },
+    type Author {
+        id: String
+        name: String
+        twitterHandle: String
+    },
+    type Post {
+        id: String
+        title: String
+        body: String
+        author: String
+    }
+    type Mutation {
+        updateAuthorName(id: String!, name: String!): Author
+    }
+`);
 
-const PostType = new GraphQLObjectType({
-    name: "Post",
-    description: "This represent a post",
-    fields: () => ({
-        id: {type: new GraphQLNonNull(GraphQLString)},
-        title: {type: new GraphQLNonNull(GraphQLString)},
-        body: {type: GraphQLString},
-        author: {
-            type: AuthorType,
-            resolve: function(post) {
-                return _.find(Authors, a => a.id === post.author_id);
-            }
-        }
-    })
-});
+const getAuthor = ({ id }) => Authors.find(author => author.id === id);
+const getAuthors = () => Authors;
+const getPost = ({ id, author_id }) => Posts.find(post => post.id === (id || author_id));
+const getPosts = () => Posts;
+const updateAuthorName = ({ id, name }) => {
+    Authors.map(author => author.id === id && Object.assign(author, { name }));
+    return Authors.find(author => author.id === id);
+};
 
-const BlogQueryRootType = new GraphQLObjectType({
-    name: "BlogAppSchema",
-    description: "Blog Application Schema Query Root",
-    fields: () => ({
-        authors: {
-            type: new GraphQLList(AuthorType),
-            description: "List of all Authors",
-            resolve: function() {
-                return Authors
-            }
-        },
-        posts: {
-            type: new GraphQLList(PostType),
-            description: "List of all Posts",
-            resolve: function() {
-                return Posts
-            }
-        }
-    })
-});
+const root = {
+    author: getAuthor,
+    authors: getAuthors,
+    post: getPost,
+    posts: getPosts,
+    updateAuthorName,
+};
 
-const BlogAppSchema = new GraphQLSchema({
-    query: BlogQueryRootType,
-});
-
-module.exports = BlogAppSchema;
+module.exports = { schema, root };
